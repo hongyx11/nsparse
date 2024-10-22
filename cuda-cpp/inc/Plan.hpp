@@ -1,4 +1,6 @@
 #include <nsparse.hpp>
+#include <cstddef>
+#include <limits.h>
 
 template <class idType>
 class Plan

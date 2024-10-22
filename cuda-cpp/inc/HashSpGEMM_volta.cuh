@@ -7,7 +7,8 @@
 #include <thrust/scan.h>
 
 #include <nsparse.hpp>
-#include <nsparse_asm.hpp>
+#include "nsparse_asm.cuh"
+#include "helper_cuda.h"
 #include <CSR.hpp>
 #include <BIN.hpp>
 
@@ -103,7 +104,7 @@ __global__ void hash_symbolic_pwarp(const idType *d_arpt, const idType *d_acolid
     }
   
     for (j = PWARP / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor(nz, j);
+        nz += __shfl_xor_sync(0xffffffff, nz, j);
     }
 
     if (tid == 0) {
@@ -119,9 +120,9 @@ __global__ void hash_symbolic_tb(const idType *d_arpt, const idType *d_acolids,
                                  idType bin_offset, idType M)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j, k;
     idType bcol, key, hash, old;
     idType nz, adr;
@@ -142,7 +143,7 @@ __global__ void hash_symbolic_tb(const idType *d_arpt, const idType *d_acolids,
     rid = d_permutation[rid + bin_offset];
     for (j = d_arpt[rid] + wid; j < d_arpt[rid + 1]; j += wnum) {
         acol = ld_gbl_col(d_acolids + j);
-        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += warp) {
+        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += WARP_SIZE) {
             bcol = d_bcolids[k];
             key = bcol;
             hash = (bcol * HASH_SCAL) & (SH_ROW - 1);
@@ -166,8 +167,8 @@ __global__ void hash_symbolic_tb(const idType *d_arpt, const idType *d_acolids,
         }
     }
 
-    for (j = warp / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor(nz, j);
+    for (j = WARP_SIZE / 2; j >= 1; j /= 2) {
+        nz += __shfl_xor_sync(0xffffffff, nz, j);
     }
   
     __syncthreads();
@@ -195,9 +196,9 @@ __global__ void hash_symbolic_tb_large(const idType *d_arpt, const idType *d_aco
                                        idType bin_offset, idType M)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j, k;
     idType bcol, key, hash, old;
     idType adr;
@@ -223,7 +224,7 @@ __global__ void hash_symbolic_tb_large(const idType *d_arpt, const idType *d_aco
     idType border = SH_ROW >> 1;
     for (j = d_arpt[rid] + wid; j < d_arpt[rid + 1]; j += wnum) {
         acol = ld_gbl_col(d_acolids + j);
-        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += warp) {
+        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += WARP_SIZE) {
             bcol = d_bcolids[k];
             key = bcol;
             hash = (bcol * HASH_SCAL) & (SH_ROW - 1);
@@ -277,9 +278,9 @@ __global__ void hash_symbolic_gl(const idType *d_arpt, const idType *d_acol,
                                  idType max_row_nz, idType bin_offset, idType M)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j, k;
     idType bcol, key, hash, old;
     idType nz, adr;
@@ -300,7 +301,7 @@ __global__ void hash_symbolic_gl(const idType *d_arpt, const idType *d_acol,
     rid = d_permutation[rid + bin_offset];
     for (j = d_arpt[rid] + wid; j < d_arpt[rid + 1]; j += wnum) {
         acol = ld_gbl_col(d_acol + j);
-        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += warp) {
+        for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += WARP_SIZE) {
             bcol = d_bcol[k];
             key = bcol;
             hash = (bcol * HASH_SCAL) % max_row_nz;
@@ -324,8 +325,8 @@ __global__ void hash_symbolic_gl(const idType *d_arpt, const idType *d_acol,
         }
     }
   
-    for (j = warp / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor(nz, j);
+    for (j = WARP_SIZE / 2; j >= 1; j /= 2) {
+        nz += __shfl_xor_sync(0xffffffff, nz, j);
     }
   
     if (tid == 0) {
@@ -347,9 +348,9 @@ __global__ void hash_symbolic_gl2(const idType *d_arpt, const idType *d_acol,
                                   idType total_row_num, idType conc_row_num)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j, k;
     idType bcol, key, hash, old;
     idType nz, adr;
@@ -372,7 +373,7 @@ __global__ void hash_symbolic_gl2(const idType *d_arpt, const idType *d_acol,
         target = d_permutation[rid + bin_offset];
         for (j = d_arpt[target] + wid; j < d_arpt[target + 1]; j += wnum) {
             acol = ld_gbl_col(d_acol + j);
-            for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += warp) {
+            for (k = d_brpt[acol] + tid; k < d_brpt[acol + 1]; k += WARP_SIZE) {
                 bcol = d_bcol[k];
                 key = bcol;
                 hash = (bcol * HASH_SCAL) % max_row_nz;
@@ -396,8 +397,8 @@ __global__ void hash_symbolic_gl2(const idType *d_arpt, const idType *d_acol,
             }
         }
   
-        for (j = warp / 2; j >= 1; j /= 2) {
-            nz += __shfl_xor(nz, j);
+        for (j = WARP_SIZE / 2; j >= 1; j /= 2) {
+            nz += __shfl_xor_sync(0xffffffff, nz, j);
         }
   
         if (tid == 0) {
@@ -500,7 +501,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
             }
         }
     }
-    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
     thrust::exclusive_scan(thrust::device, bin.d_count, bin.d_count + (a.nrow + 1), c.d_rpt, 0);
     cudaMemcpy(&(c.nnz), c.d_rpt + c.nrow, sizeof(idType), cudaMemcpyDeviceToHost);
 }
@@ -568,7 +569,9 @@ __global__ void hash_numeric_pwarp(const idType *d_arpt, const idType *d_acol, c
             }
         }
     }
-  
+
+    __syncthreads();
+    
     for (j = tid; j < (TS_N_P); j += PWARP) {
         if (id_table[soffset + j] != -1) {
             index = atomicAdd(d_nz + rid, 1);
@@ -576,6 +579,8 @@ __global__ void hash_numeric_pwarp(const idType *d_arpt, const idType *d_acol, c
             value_table[soffset + index] = value_table[soffset + j];
         }
     }
+    
+    __syncthreads();
     
     idType nz = d_nz[rid];
     if (sort) {
@@ -604,9 +609,9 @@ template <class idType, class valType, int SH_ROW, bool sort>
 __global__ void hash_numeric_tb(const idType *d_arpt, const idType *d_acolids, const valType *d_avalues, const idType* __restrict__ d_brpt, const idType* __restrict__ d_bcolids, const valType* __restrict__ d_bvalues, idType *d_crpt, idType *d_ccolids, valType *d_cvalues, const idType *d_permutation, idType *d_nz, idType bin_offset, idType bin_size)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j;
     __shared__ idType id_table[SH_ROW];
     __shared__ valType value_table[SH_ROW];
@@ -637,7 +642,7 @@ __global__ void hash_numeric_tb(const idType *d_arpt, const idType *d_acolids, c
     for (j = d_arpt[rid] + wid; j < d_arpt[rid + 1]; j += wnum) {
         acolids = ld_gbl_col(d_acolids + j);
         avalues = ld_gbl_val(d_avalues + j);
-        for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += warp) {
+        for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += WARP_SIZE) {
             bcolids = d_bcolids[k];
             bvalues = d_bvalues[k];
 	
@@ -663,8 +668,8 @@ __global__ void hash_numeric_tb(const idType *d_arpt, const idType *d_acolids, c
     }
   
     __syncthreads();
-    if (threadIdx.x < warp) {
-        for (j = tid; j < SH_ROW; j += warp) {
+    if (threadIdx.x < WARP_SIZE) {
+        for (j = tid; j < SH_ROW; j += WARP_SIZE) {
             if (id_table[j] != -1) {
                 index = atomicAdd(d_nz + rid, 1);
                 id_table[index] = id_table[j];
@@ -701,9 +706,9 @@ template <class idType, class valType, bool sort>
 __global__ void hash_numeric_gl(const idType *d_arpt, const idType *d_acolids, const valType *d_avalues, const idType* __restrict__ d_brpt, const idType* __restrict__ d_bcolids, const valType* __restrict__ d_bvalues, idType *d_crpt, idType *d_ccolids, valType *d_cvalues, const idType *d_permutation, idType *d_nz, idType *d_id_table, valType *d_value_table, idType max_row_nz, idType bin_offset, idType M)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (WARP_SIZE - 1);
+    idType wid = threadIdx.x / WARP_SIZE;
+    idType wnum = blockDim.x / WARP_SIZE;
     idType j;
   
     if (rid >= M) {
@@ -729,7 +734,7 @@ __global__ void hash_numeric_gl(const idType *d_arpt, const idType *d_acolids, c
     for (j = d_arpt[rid] + wid; j < d_arpt[rid + 1]; j += wnum) {
         acolids = ld_gbl_col(d_acolids + j);
         avalues = ld_gbl_val(d_avalues + j);
-        for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += warp) {
+        for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += WARP_SIZE) {
             bcolids = d_bcolids[k];
             bvalues = d_bvalues[k];
       
@@ -757,8 +762,8 @@ __global__ void hash_numeric_gl(const idType *d_arpt, const idType *d_acolids, c
     }
   
     __syncthreads();
-    if (threadIdx.x < warp) {
-        for (j = tid; j < max_row_nz; j += warp) {
+    if (threadIdx.x < WARP_SIZE) {
+        for (j = tid; j < max_row_nz; j += WARP_SIZE) {
             if (d_id_table[doffset + j] != -1) {
                 index = atomicAdd(d_nz + rid, 1);
                 d_id_table[doffset + index] = d_id_table[doffset + j];
@@ -964,7 +969,7 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
             }
         }
     }
-    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
 }
 
 template <bool sort, class idType, class valType>
@@ -988,7 +993,7 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     cudaEventRecord(event[0], 0);
     hash_symbolic(a, b, c, bin);
     cudaEventRecord(event[1], 0);
-    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
     cudaEventElapsedTime(&msec, event[0], event[1]);
     // cout << "HashSymbolic: " << msec << endl;
     
@@ -1000,7 +1005,7 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     cudaEventRecord(event[0], 0);
     hash_numeric<idType, valType, sort>(a, b, c, bin);
     cudaEventRecord(event[1], 0);
-    cudaThreadSynchronize();
+    cudaDeviceSynchronize();
     cudaEventElapsedTime(&msec, event[0], event[1]);
     // cout << "HashNumeric: " << msec << endl;
 }

@@ -1,4 +1,8 @@
 #include <typeinfo>
+#include <random>
+#include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
 
 #ifndef NSPARSE_H
 #define NSPARSE_H
@@ -6,10 +10,10 @@
 #define div_round_up(a, b) ((a % b == 0)? a / b : a / b + 1)
 
 /* Hardware Specific Parameters */
-#define warp_BIT 5
-#define warp 32
+#define WARP_BIT 5
+#define WARP_SIZE 32
 #define MAX_LOCAL_THREAD_NUM 1024
-#define MAX_THREAD_BLOCK (MAX_LOCAL_THREAD_NUM / warp)
+#define MAX_THREAD_BLOCK (MAX_LOCAL_THREAD_NUM / WARP)
 
 /* Number of SpMV Execution for Evaluation or Test */
 #define TRI_NUM 101

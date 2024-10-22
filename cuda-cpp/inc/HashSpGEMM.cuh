@@ -7,9 +7,10 @@
 #include <thrust/scan.h>
 
 #include <nsparse.hpp>
-#include <nsparse_asm.hpp>
+#include "nsparse_asm.cuh"
 #include <CSR.hpp>
 #include <BIN.hpp>
+#include "helper_cuda.h"
 
 #ifndef HASHSPGEMM_H
 #define HASHSPGEMM_H
@@ -103,7 +104,7 @@ __global__ void hash_symbolic_pwarp(const idType *d_arpt, const idType *d_acolid
     }
   
     for (j = PWARP / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor_sync(0xffffffff, nz, j);
+        nz += __shfl_xor(nz, j);
     }
 
     if (tid == 0) {
@@ -167,7 +168,7 @@ __global__ void hash_symbolic_tb(const idType *d_arpt, const idType *d_acolids,
     }
 
     for (j = warp / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor_sync(0xffffffff, nz, j);
+        nz += __shfl_xor(nz, j);
     }
   
     __syncthreads();
@@ -325,7 +326,7 @@ __global__ void hash_symbolic_gl(const idType *d_arpt, const idType *d_acol,
     }
   
     for (j = warp / 2; j >= 1; j /= 2) {
-        nz += __shfl_xor_sync(0xffffffff, nz, j);
+        nz += __shfl_xor(nz, j);
     }
   
     if (tid == 0) {
@@ -397,7 +398,7 @@ __global__ void hash_symbolic_gl2(const idType *d_arpt, const idType *d_acol,
         }
   
         for (j = warp / 2; j >= 1; j /= 2) {
-            nz += __shfl_xor_sync(0xffffffff, nz, j);
+            nz += __shfl_xor(nz, j);
         }
   
         if (tid == 0) {
@@ -500,7 +501,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
             }
         }
     }
-    cudaDeviceSynchronize();
+    cudaThreadSynchronize();
     thrust::exclusive_scan(thrust::device, bin.d_count, bin.d_count + (a.nrow + 1), c.d_rpt, 0);
     cudaMemcpy(&(c.nnz), c.d_rpt + c.nrow, sizeof(idType), cudaMemcpyDeviceToHost);
 }
@@ -568,9 +569,7 @@ __global__ void hash_numeric_pwarp(const idType *d_arpt, const idType *d_acol, c
             }
         }
     }
-
-    __syncthreads();
-    
+  
     for (j = tid; j < (TS_N_P); j += PWARP) {
         if (id_table[soffset + j] != -1) {
             index = atomicAdd(d_nz + rid, 1);
@@ -578,8 +577,6 @@ __global__ void hash_numeric_pwarp(const idType *d_arpt, const idType *d_acol, c
             value_table[soffset + index] = value_table[soffset + j];
         }
     }
-    
-    __syncthreads();
     
     idType nz = d_nz[rid];
     if (sort) {
@@ -968,7 +965,7 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
             }
         }
     }
-    cudaDeviceSynchronize();
+    cudaThreadSynchronize();
 }
 
 template <bool sort, class idType, class valType>
@@ -992,7 +989,7 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     cudaEventRecord(event[0], 0);
     hash_symbolic(a, b, c, bin);
     cudaEventRecord(event[1], 0);
-    cudaDeviceSynchronize();
+    cudaThreadSynchronize();
     cudaEventElapsedTime(&msec, event[0], event[1]);
     // cout << "HashSymbolic: " << msec << endl;
     
@@ -1004,7 +1001,7 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     cudaEventRecord(event[0], 0);
     hash_numeric<idType, valType, sort>(a, b, c, bin);
     cudaEventRecord(event[1], 0);
-    cudaDeviceSynchronize();
+    cudaThreadSynchronize();
     cudaEventElapsedTime(&msec, event[0], event[1]);
     // cout << "HashNumeric: " << msec << endl;
 }

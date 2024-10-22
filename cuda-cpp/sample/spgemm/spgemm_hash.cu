@@ -10,8 +10,10 @@
 
 #include <nsparse.hpp>
 #include <CSR.hpp>
-#include <SpGEMM.hpp>
-#include <HashSpGEMM_volta.hpp>
+// #include <SpGEMM.hpp>
+
+#include "SpGEMM.cuh"
+#include "HashSpGEMM_volta.cuh"
 
 typedef int IT;
 #ifdef FLOAT
@@ -83,17 +85,17 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     c.memcpyDtH();
     c.release_csr();
 
-#ifdef sfDEBUG
-    CSR<IT, VT> cusparse_c;
-    SpGEMM_cuSPARSE(a, b, cusparse_c);
-    if (c == cusparse_c) {
-        cout << "HashSpGEMM is correctly executed" << endl;
-    }
-    cout << "Nnz of A: " << a.nnz << endl; 
-    cout << "Number of intermediate products: " << flop_count / 2 << endl; 
-    cout << "Nnz of C: " << c.nnz << endl; 
-    cusparse_c.release_cpu_csr();
-#endif
+// #ifdef sfDEBUG
+//     CSR<IT, VT> cusparse_c;
+//     SpGEMM_cuSPARSE(a, b, cusparse_c);
+//     if (c == cusparse_c) {
+//         cout << "HashSpGEMM is correctly executed" << endl;
+//     }
+//     cout << "Nnz of A: " << a.nnz << endl; 
+//     cout << "Number of intermediate products: " << flop_count / 2 << endl; 
+//     cout << "Nnz of C: " << c.nnz << endl; 
+//     cusparse_c.release_cpu_csr();
+// #endif
 
     a.release_csr();
     b.release_csr();
@@ -107,7 +109,7 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
 int main(int argc, char *argv[])
 {
     CSR<IT, VT> a, b, c;
-
+    
     /* Set CSR reding from MM file or generating random matrix */
     cout << "Initialize Matrix A" << endl;
     cout << "Read matrix data from " << argv[1] << endl;

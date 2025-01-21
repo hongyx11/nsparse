@@ -1,13 +1,25 @@
-#include <nsparse.hpp>
+#ifndef NSPARSE_PLAN_H
+#define NSPARSE_PLAN_H
+
+#include <climits>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+
+#include "def.h"
+
+namespace nsparse
+{
 
 template <class idType>
 class Plan
 {
-public:
-    Plan(): isPlan(false), seg_size(1), block_size(1), memory_access(INT_MAX), min_msec(sfFLT_MAX)
+   public:
+    Plan() : isPlan(false), seg_size(1), block_size(1), memory_access(INT_MAX), min_msec(sfFLT_MAX)
     {
     }
-    Plan(idType segment, idType block): isPlan(true)
+
+    Plan(idType segment, idType block) : isPlan(true)
     {
         seg_size = segment;
         if (seg_size > USHORT_MAX) {
@@ -18,9 +30,11 @@ public:
             block_size = 1;
         }
     }
+
     ~Plan()
     {
     }
+
     void set_plan(idType s_size, idType b_size)
     {
         seg_size = s_size;
@@ -39,3 +53,5 @@ public:
     float min_msec;
 };
 
+}  // namespace nsparse
+#endif

@@ -1,38 +1,34 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <math.h>
-
 #include <cuda.h>
 #include <helper_cuda.h>
-
+#include <math.h>
 #include <nsparse.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define LINE_LENGTH_MAX 256
 
 /*Convert file to CSR*/
-void convert_file_csr(char *file_name,
-                      int **rpt, int **col, real **val,
-                      int *M, int *N, int *nz, int *nnz_max)
+void convert_file_csr(char* file_name, int** rpt, int** col, real** val, int* M, int* N, int* nz,
+                      int* nnz_max)
 {
     int i;
     int isUnsy;
     int num, offset;
     char *line, *ch;
-    FILE *fp;
+    FILE* fp;
     int *col_coo, *row_coo;
-    real *val_coo;
-    int *each_row_index;
+    real* val_coo;
+    int* each_row_index;
 
     int *nnz_num, *col_, *rpt_;
-    real *val_;
+    real* val_;
 
     isUnsy = 0;
-    line = (char *)malloc(sizeof(char) * LINE_LENGTH_MAX);
-  
+    line = (char*)malloc(sizeof(char) * LINE_LENGTH_MAX);
+
     /* Open File */
     fp = fopen(file_name, "r");
-    if(fp == NULL) {
+    if (fp == NULL) {
         printf("Cannot find file\n");
         exit(1);
     }
@@ -43,17 +39,16 @@ void convert_file_csr(char *file_name,
     }
     do {
         fgets(line, LINE_LENGTH_MAX, fp);
-    } while(line[0] == '%');
-  
+    } while (line[0] == '%');
+
     /* Get size info */
     sscanf(line, "%d %d %d", M, N, nz);
 
     /* Store in COO format */
     num = 0;
-    col_coo = (int *)malloc(sizeof(int) * (*nz));
-    row_coo = (int *)malloc(sizeof(int) * (*nz));
-    val_coo = (real *)malloc(sizeof(real) * (*nz));
-
+    col_coo = (int*)malloc(sizeof(int) * (*nz));
+    row_coo = (int*)malloc(sizeof(int) * (*nz));
+    val_coo = (real*)malloc(sizeof(real) * (*nz));
 
     while (fgets(line, LINE_LENGTH_MAX, fp)) {
         ch = line;
@@ -70,8 +65,7 @@ void convert_file_csr(char *file_name,
             /* Read third word (value data)*/
             val_coo[num] = (real)atof(ch);
             ch = strchr(ch, ' ');
-        }
-        else {
+        } else {
             val_coo[num] = 1.0;
         }
         num++;
@@ -79,44 +73,44 @@ void convert_file_csr(char *file_name,
     fclose(fp);
 
     /* Count the number of non-zero in each row */
-    nnz_num = (int *)malloc(sizeof(int) * (*M));
+    nnz_num = (int*)malloc(sizeof(int) * (*M));
     for (i = 0; i < (*M); i++) {
         nnz_num[i] = 0;
     }
     for (i = 0; i < num; i++) {
         nnz_num[row_coo[i]]++;
-        if(col_coo[i] != row_coo[i] && isUnsy == 0) {
+        if (col_coo[i] != row_coo[i] && isUnsy == 0) {
             nnz_num[col_coo[i]]++;
             (*nz)++;
         }
     }
 
     /* Allocation of rpt, col, val */
-    rpt_ = (int *)malloc(sizeof(int) * ((*M) + 1));
-    col_ = (int *)malloc(sizeof(int) * (*nz));
-    val_ = (real *)malloc(sizeof(real) * (*nz));
+    rpt_ = (int*)malloc(sizeof(int) * ((*M) + 1));
+    col_ = (int*)malloc(sizeof(int) * (*nz));
+    val_ = (real*)malloc(sizeof(real) * (*nz));
 
     offset = 0;
     *nnz_max = 0;
     for (i = 0; i < (*M); i++) {
         rpt_[i] = offset;
         offset += nnz_num[i];
-        if(*nnz_max < nnz_num[i]){
+        if (*nnz_max < nnz_num[i]) {
             *nnz_max = nnz_num[i];
         }
     }
     rpt_[(*M)] = offset;
 
-    each_row_index = (int *)malloc(sizeof(int) * (*M));
+    each_row_index = (int*)malloc(sizeof(int) * (*M));
     for (i = 0; i < (*M); i++) {
         each_row_index[i] = 0;
     }
-  
+
     for (i = 0; i < num; i++) {
         col_[rpt_[row_coo[i]] + each_row_index[row_coo[i]]] = col_coo[i];
         val_[rpt_[row_coo[i]] + each_row_index[row_coo[i]]++] = val_coo[i];
-    
-        if (col_coo[i] != row_coo[i] && isUnsy==0) {
+
+        if (col_coo[i] != row_coo[i] && isUnsy == 0) {
             col_[rpt_[col_coo[i]] + each_row_index[col_coo[i]]] = row_coo[i];
             val_[rpt_[col_coo[i]] + each_row_index[col_coo[i]]++] = val_coo[i];
         }
@@ -132,48 +126,50 @@ void convert_file_csr(char *file_name,
     free(col_coo);
     free(val_coo);
     free(each_row_index);
-
 }
 
-void init_csr_matrix_from_file(sfCSR *mat, char *file_name)
+void init_csr_matrix_from_file(sfCSR* mat, char* file_name)
 {
-    convert_file_csr(file_name,
-                     &(mat->rpt), &(mat->col), &(mat->val),
-                     &(mat->M), &(mat->N), &(mat->nnz), &(mat->nnz_max));
+    convert_file_csr(file_name, &(mat->rpt), &(mat->col), &(mat->val), &(mat->M), &(mat->N),
+                     &(mat->nnz), &(mat->nnz_max));
     mat->matrix_name = file_name;
 }
 
-void csr_memcpy(sfCSR *mat)
+void csr_memcpy(sfCSR* mat)
 {
-    checkCudaErrors(cudaMalloc((void **)&(mat->d_rpt), sizeof(int) * (mat->M + 1)));
-    checkCudaErrors(cudaMalloc((void **)&(mat->d_col), sizeof(int) * mat->nnz));
-    checkCudaErrors(cudaMalloc((void **)&(mat->d_val), sizeof(real) * mat->nnz));
-  
-    checkCudaErrors(cudaMemcpy(mat->d_rpt, mat->rpt, sizeof(int) * (mat->M + 1), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(mat->d_col, mat->col, sizeof(int) * mat->nnz, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(mat->d_val, mat->val, sizeof(real) * mat->nnz, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMalloc((void**)&(mat->d_rpt), sizeof(int) * (mat->M + 1)));
+    checkCudaErrors(cudaMalloc((void**)&(mat->d_col), sizeof(int) * mat->nnz));
+    checkCudaErrors(cudaMalloc((void**)&(mat->d_val), sizeof(real) * mat->nnz));
 
+    checkCudaErrors(
+        cudaMemcpy(mat->d_rpt, mat->rpt, sizeof(int) * (mat->M + 1), cudaMemcpyHostToDevice));
+    checkCudaErrors(
+        cudaMemcpy(mat->d_col, mat->col, sizeof(int) * mat->nnz, cudaMemcpyHostToDevice));
+    checkCudaErrors(
+        cudaMemcpy(mat->d_val, mat->val, sizeof(real) * mat->nnz, cudaMemcpyHostToDevice));
 }
 
-void csr_memcpyDtH(sfCSR *mat)
+void csr_memcpyDtH(sfCSR* mat)
 {
-    mat->rpt = (int *)malloc(sizeof(int) * (mat->M + 1));
-    mat->col = (int *)malloc(sizeof(int) * (mat->nnz));
-    mat->val = (real *)malloc(sizeof(real) * (mat->nnz));
-  
-    checkCudaErrors(cudaMemcpy(mat->rpt, mat->d_rpt, sizeof(int) * (mat->M + 1), cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy(mat->col, mat->d_col, sizeof(int) * mat->nnz, cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy(mat->val, mat->d_val, sizeof(real) * mat->nnz, cudaMemcpyDeviceToHost));
+    mat->rpt = (int*)malloc(sizeof(int) * (mat->M + 1));
+    mat->col = (int*)malloc(sizeof(int) * (mat->nnz));
+    mat->val = (real*)malloc(sizeof(real) * (mat->nnz));
 
+    checkCudaErrors(
+        cudaMemcpy(mat->rpt, mat->d_rpt, sizeof(int) * (mat->M + 1), cudaMemcpyDeviceToHost));
+    checkCudaErrors(
+        cudaMemcpy(mat->col, mat->d_col, sizeof(int) * mat->nnz, cudaMemcpyDeviceToHost));
+    checkCudaErrors(
+        cudaMemcpy(mat->val, mat->d_val, sizeof(real) * mat->nnz, cudaMemcpyDeviceToHost));
 }
 
 /* Plan set */
-void init_plan(sfPlan *plan)
+void init_plan(sfPlan* plan)
 {
     plan->isPlan = FALSE;
 }
 
-void set_plan(sfPlan *plan, size_t seg_size, int block_size)
+void set_plan(sfPlan* plan, size_t seg_size, int block_size)
 {
     plan->isPlan = TRUE;
     plan->seg_size = seg_size;
@@ -187,7 +183,7 @@ void set_plan(sfPlan *plan, size_t seg_size, int block_size)
 }
 
 /*Initializing vector*/
-void init_vector(real *x, int row)
+void init_vector(real* x, int row)
 {
     int i;
 
@@ -237,18 +233,18 @@ void release_amb(sfAMB mat)
 /*
  * Check answer of SpMV
  */
-void csr_kernel(real *y, sfCSR *cpu_mat, real *x)
+void csr_kernel(real* y, sfCSR* cpu_mat, real* x)
 {
     int i, j;
     real ans;
     int M = cpu_mat->M;
     int *rpt, *col;
-    real *val;
+    real* val;
 
     rpt = cpu_mat->rpt;
     col = cpu_mat->col;
     val = cpu_mat->val;
-  
+
     for (i = 0; i < M; i++) {
         ans = 0;
         for (j = 0; j < (rpt[i + 1] - rpt[i]); j++) {
@@ -258,14 +254,13 @@ void csr_kernel(real *y, sfCSR *cpu_mat, real *x)
     }
 }
 
-void ans_check(real *csr_ans, real *ans_vec, int N)
+void ans_check(real* csr_ans, real* ans_vec, int N)
 {
     int i;
     int total_fail = 10;
     real delta, base, scale;
-  
+
     for (i = 0; i < N; i++) {
-    
         delta = ans_vec[i] - csr_ans[i];
         base = ans_vec[i];
 
@@ -275,7 +270,7 @@ void ans_check(real *csr_ans, real *ans_vec, int N)
         if (base < 0) {
             base *= -1;
         }
-        
+
 #ifdef FLOAT
         scale = 1000;
 #else
@@ -284,15 +279,15 @@ void ans_check(real *csr_ans, real *ans_vec, int N)
         if (delta * 100 * scale > base) {
             printf("i=%d, ans=%e, csr=%e, delta=%e\n", i, ans_vec[i], csr_ans[i], delta);
             total_fail--;
-            if(total_fail == 0)
+            if (total_fail == 0) {
                 break;
+            }
         }
     }
 
-    if (total_fail != 10){
+    if (total_fail != 10) {
         printf("Calculation Result is Incorrect\n");
-    }
-    else {
+    } else {
         printf("Calculation Result is Correct\n");
     }
 }
@@ -312,14 +307,16 @@ void check_spgemm_answer(sfCSR c, sfCSR ans)
     /* check rpt */
     for (i = 0; i < M + 1; i++) {
         if (c.rpt[i] != ans.rpt[i]) {
-            printf("rpt[%d] is not correct: %d (correct),%d (incorrect)\n", i, ans.rpt[i], c.rpt[i]);
+            printf("rpt[%d] is not correct: %d (correct),%d (incorrect)\n", i, ans.rpt[i],
+                   c.rpt[i]);
             return;
         }
     }
     /* check col */
     for (i = 0; i < nz; i++) {
         if (c.col[i] != ans.col[i]) {
-            printf("col[%d] is not correct: %d (correct), %d (incorrect)\n", i, ans.col[i], c.col[i]);
+            printf("col[%d] is not correct: %d (correct), %d (incorrect)\n", i, ans.col[i],
+                   c.col[i]);
             return;
         }
     }
@@ -334,22 +331,24 @@ void check_spgemm_answer(sfCSR c, sfCSR ans)
     for (i = 0; i < nz; i++) {
         delta = ans.val[i] - c.val[i];
         base = ans.val[i];
-        if (delta < 0) delta *= -1;
-        if (base < 0) base *= -1;
+        if (delta < 0) {
+            delta *= -1;
+        }
+        if (base < 0) {
+            base *= -1;
+        }
 
         if (delta * 1000 * scale > base) {
             printf("val[%d]: ans=%e, c=%e, delta=%e\n", i, ans.val[i], c.val[i], delta);
             total_fail--;
-            if(total_fail == 0)
+            if (total_fail == 0) {
                 break;
+            }
         }
     }
-    if (total_fail != 10){
+    if (total_fail != 10) {
         printf("Calculation Result is Incorrect\n");
-    }
-    else {
+    } else {
         printf("Calculation Result is Correct\n");
     }
 }
-
-

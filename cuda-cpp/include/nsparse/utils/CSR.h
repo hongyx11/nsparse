@@ -1,64 +1,77 @@
+#ifndef NSPARSE_CSR_H
+#define NSPARSE_CSR_H
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cuda.h>
 
-using namespace std;
+#include "nsparse/utils/cudautils.h"
 
-#ifndef CSR_H
-#define CSR_H
+namespace nsparse
+{
+
 template <class idType, class valType>
 class CSR
 {
-public:
-    CSR():nrow(0), ncolumn(0), nnz(0), device_malloc(false)
+   public:
+    CSR() : nrow(0), ncolumn(0), nnz(0), devise_malloc(false)
     {
     }
+
     ~CSR()
     {
     }
+
     void release_cpu_csr()
     {
         delete[] rpt;
         delete[] colids;
         delete[] values;
     }
+
     void release_csr()
     {
-        if (device_malloc) {
-            cudaFree(d_rpt);
-            cudaFree(d_colids);
-            cudaFree(d_values);
+        if (devise_malloc) {
+            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_rpt));
+            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_colids));
+            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_values));
         }
-        device_malloc = false;
+        devise_malloc = false;
     }
+
     bool operator==(CSR mat)
     {
         bool f = false;
         if (nrow != mat.nrow) {
-            cout << "Number of row is not correct: " << nrow << ", " << mat.nrow << endl;
+            std::cout << "Number of row is not correct: " << nrow << ", " << mat.nrow << std::endl;
             return f;
         }
         if (ncolumn != mat.ncolumn) {
-            cout << "Number of column is not correct" << ncolumn << ", " << mat.ncolumn << endl;
+            std::cout << "Number of column is not correct" << ncolumn << ", " << mat.ncolumn
+                      << std::endl;
             return f;
         }
         if (nnz != mat.nnz) {
-            cout << "Number of nz is not correct" << nnz << ", " << mat.nnz << endl;
+            std::cout << "Number of nz is not correct" << nnz << ", " << mat.nnz << std::endl;
             return f;
         }
-        if (rpt == NULL || mat.rpt == NULL || colids == NULL || mat.colids == NULL || values == NULL || mat.values == NULL) {
-            cout << "NULL Pointer" << endl;
+        if (rpt == NULL || mat.rpt == NULL || colids == NULL || mat.colids == NULL ||
+            values == NULL || mat.values == NULL) {
+            std::cout << "NULL Pointer" << std::endl;
             return f;
         }
         for (idType i = 0; i < nrow + 1; ++i) {
             if (rpt[i] != mat.rpt[i]) {
-                cout << "rpt[" << i << "] is not correct" << endl;
+                std::cout << "rpt[" << i << "] is not correct" << std::endl;
                 return f;
             }
         }
         for (idType i = 0; i < nnz; ++i) {
             if (colids[i] != mat.colids[i]) {
-                cout << "colids[" << i << "] is not correct" << endl;
+                std::cout << "colids[" << i << "] is not correct" << std::endl;
                 return f;
             }
         }
@@ -78,11 +91,11 @@ public:
                 scale *= 1000;
             }
             if (delta * scale * 100 > base) {
-                cout << i << ": " << values[i] << ", " << mat.values[i] << endl;
+                std::cout << i << ": " << values[i] << ", " << mat.values[i] << std::endl;
                 total_fail--;
             }
             if (total_fail == 0) {
-                cout << "values[" << i << "] is not correct" << endl;
+                std::cout << "values[" << i << "] is not correct" << std::endl;
                 return f;
             }
         }
@@ -90,67 +103,78 @@ public:
         return f;
     }
 
-    void init_data_from_mtx(string file_path);
+    void init_data_from_mtx(std::string file_path);
+
     void memcpyHtD()
     {
-        if (!device_malloc) {
-            cout << "Allocating memory space for matrix data on device memory" << endl;
-            cudaMalloc((void **)&d_rpt, sizeof(idType) * (nrow + 1));
-            cudaMalloc((void **)&d_colids, sizeof(idType) * nnz);
-            cudaMalloc((void **)&d_values, sizeof(valType) * nnz);
+        if (!devise_malloc) {
+            //             std::cout << "Allocating memory space for matrix data
+            //             on devise memory"
+            //             << std::endl;
+            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_rpt, sizeof(idType) * (nrow + 1)));
+            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_colids, sizeof(idType) * nnz));
+            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_values, sizeof(valType) * nnz));
         }
-        cout << "Copying matrix data to GPU device" << endl;
-        cudaMemcpy(d_rpt, rpt, sizeof(idType) * (nrow + 1), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_colids, colids, sizeof(idType) * nnz, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_values, values, sizeof(valType) * nnz, cudaMemcpyHostToDevice);
-        device_malloc = true;
+        //         std::cout << "Copying matrix data to GPU devise" <<
+        //         std::endl;
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(d_rpt, rpt, sizeof(idType) * (nrow + 1), cudaMemcpyHostToDevice));
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(d_colids, colids, sizeof(idType) * nnz, cudaMemcpyHostToDevice));
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(d_values, values, sizeof(valType) * nnz, cudaMemcpyHostToDevice));
+        devise_malloc = true;
     }
+
     void memcpyDtH()
     {
         rpt = new idType[nrow + 1];
         colids = new idType[nnz];
         values = new valType[nnz];
-        cout << "Matrix data is copied to Host" << endl;
-        cudaMemcpy(rpt, d_rpt, sizeof(idType) * (nrow + 1), cudaMemcpyDeviceToHost);
-        cudaMemcpy(colids, d_colids, sizeof(idType) * nnz, cudaMemcpyDeviceToHost);
-        cudaMemcpy(values, d_values, sizeof(valType) * nnz, cudaMemcpyDeviceToHost);
+        //         std::cout << "Matrix data is copied to Host" << std::endl;
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(rpt, d_rpt, sizeof(idType) * (nrow + 1), cudaMemcpyDeviceToHost));
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(colids, d_colids, sizeof(idType) * nnz, cudaMemcpyDeviceToHost));
+        HGEMM_CHECK_CUDART_ERROR(
+            cudaMemcpy(values, d_values, sizeof(valType) * nnz, cudaMemcpyDeviceToHost));
     }
 
-    void spmv_cpu(valType *x, valType *y);
-    
-    idType *rpt;
-    idType *colids;
-    valType *values;
-    idType *d_rpt;
-    idType *d_colids;
-    valType *d_values;
+    void spmv_cpu(valType* x, valType* y);
+
+    idType* rpt;
+    idType* colids;
+    valType* values;
+    idType* d_rpt;
+    idType* d_colids;
+    valType* d_values;
     idType nrow;
     idType ncolumn;
     idType nnz;
     bool host_malloc;
-    bool device_malloc;
+    bool devise_malloc;
 };
 
 template <class idType, class valType>
-void CSR<idType, valType>::init_data_from_mtx(string file_path)
+void CSR<idType, valType>::init_data_from_mtx(std::string file_path)
 {
     idType i, num;
     bool isUnsy;
     char *line, *ch;
-    FILE *fp;
+    FILE* fp;
     idType *col_coo, *row_coo, *nnz_num, *each_row_index;
-    valType *val_coo;
+    valType* val_coo;
     idType LINE_LENGTH_MAX = 256;
 
-    device_malloc = false;
-    
+    devise_malloc = false;
+
     isUnsy = false;
     line = new char[LINE_LENGTH_MAX];
-  
+
     /* Open File */
     fp = fopen(file_path.c_str(), "r");
     if (fp == NULL) {
-        cout << "Cannot find file" << endl;
+        std::cout << "Cannot find file" << std::endl;
         exit(1);
     }
 
@@ -160,11 +184,11 @@ void CSR<idType, valType>::init_data_from_mtx(string file_path)
     }
     do {
         fgets(line, LINE_LENGTH_MAX, fp);
-    } while(line[0] == '%');
-  
+    } while (line[0] == '%');
+
     /* Get size info */
     sscanf(line, "%d %d %d", &nrow, &ncolumn, &nnz);
-    
+
     /* Store in COO format */
     num = 0;
     col_coo = new idType[nnz];
@@ -186,8 +210,7 @@ void CSR<idType, valType>::init_data_from_mtx(string file_path)
             /* Read third word (value data)*/
             val_coo[num] = (valType)atof(ch);
             ch = strchr(ch, ' ');
-        }
-        else {
+        } else {
             val_coo[num] = 1.0;
         }
         num++;
@@ -202,7 +225,7 @@ void CSR<idType, valType>::init_data_from_mtx(string file_path)
     }
     for (i = 0; i < num; i++) {
         nnz_num[row_coo[i]]++;
-        if(col_coo[i] != row_coo[i] && isUnsy == false) {
+        if (col_coo[i] != row_coo[i] && isUnsy == false) {
             nnz_num[col_coo[i]]++;
             nnz++;
         }
@@ -222,33 +245,32 @@ void CSR<idType, valType>::init_data_from_mtx(string file_path)
     for (i = 0; i < nrow; i++) {
         each_row_index[i] = 0;
     }
-  
+
     for (i = 0; i < num; i++) {
         colids[rpt[row_coo[i]] + each_row_index[row_coo[i]]] = col_coo[i];
         values[rpt[row_coo[i]] + each_row_index[row_coo[i]]++] = val_coo[i];
-    
+
         if (col_coo[i] != row_coo[i] && isUnsy == false) {
             colids[rpt[col_coo[i]] + each_row_index[col_coo[i]]] = row_coo[i];
             values[rpt[col_coo[i]] + each_row_index[col_coo[i]]++] = val_coo[i];
         }
     }
 
-    cout << "Row: " << nrow << ", Column: " << ncolumn << ", Nnz: " << nnz << endl;
+    std::cout << "Row: " << nrow << ", Column: " << ncolumn << ", Nnz: " << nnz << std::endl;
 
     delete[] nnz_num;
     delete[] row_coo;
     delete[] col_coo;
     delete[] val_coo;
     delete[] each_row_index;
-
 }
 
 template <class idType, class valType>
-void CSR<idType, valType>::spmv_cpu(valType *x, valType *y)
+void CSR<idType, valType>::spmv_cpu(valType* x, valType* y)
 {
     idType i, j;
     valType ans;
-  
+
     for (i = 0; i < nrow; ++i) {
         ans = 0;
         for (j = 0; j < (rpt[i + 1] - rpt[i]); j++) {
@@ -258,4 +280,5 @@ void CSR<idType, valType>::spmv_cpu(valType *x, valType *y)
     }
 }
 
+}  // namespace nsparse
 #endif

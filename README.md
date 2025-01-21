@@ -1,3 +1,13 @@
+nsparse code is quite dated. This fork fixed some compiling issues and runs on 70, 80, 90 cuda archs.
+It will compile spgemm-hash. 
+to compile:
+```bash
+cmake -S . -B build
+```
+then `make`. 
+Test:
+`./build/spgemm-bash <your/sparsematrix.mtx>`
+
 nsparse: Fast Sparse Matrix Library for GPU
 ======
 

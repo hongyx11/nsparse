@@ -35,9 +35,9 @@ class CSR
     void release_csr()
     {
         if (devise_malloc) {
-            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_rpt));
-            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_colids));
-            HGEMM_CHECK_CUDART_ERROR(cudaFree(d_values));
+            CUDA_CHECK_CUDART_ERROR(cudaFree(d_rpt));
+            CUDA_CHECK_CUDART_ERROR(cudaFree(d_colids));
+            CUDA_CHECK_CUDART_ERROR(cudaFree(d_values));
         }
         devise_malloc = false;
     }
@@ -111,17 +111,17 @@ class CSR
             //             std::cout << "Allocating memory space for matrix data
             //             on devise memory"
             //             << std::endl;
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_rpt, sizeof(idType) * (nrow + 1)));
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_colids, sizeof(idType) * nnz));
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_values, sizeof(valType) * nnz));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_rpt, sizeof(idType) * (nrow + 1)));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_colids, sizeof(idType) * nnz));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_values, sizeof(valType) * nnz));
         }
         //         std::cout << "Copying matrix data to GPU devise" <<
         //         std::endl;
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(d_rpt, rpt, sizeof(idType) * (nrow + 1), cudaMemcpyHostToDevice));
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(d_colids, colids, sizeof(idType) * nnz, cudaMemcpyHostToDevice));
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(d_values, values, sizeof(valType) * nnz, cudaMemcpyHostToDevice));
         devise_malloc = true;
     }
@@ -132,11 +132,11 @@ class CSR
         colids = new idType[nnz];
         values = new valType[nnz];
         //         std::cout << "Matrix data is copied to Host" << std::endl;
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(rpt, d_rpt, sizeof(idType) * (nrow + 1), cudaMemcpyDeviceToHost));
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(colids, d_colids, sizeof(idType) * nnz, cudaMemcpyDeviceToHost));
-        HGEMM_CHECK_CUDART_ERROR(
+        CUDA_CHECK_CUDART_ERROR(
             cudaMemcpy(values, d_values, sizeof(valType) * nnz, cudaMemcpyDeviceToHost));
     }
 

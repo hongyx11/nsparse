@@ -454,8 +454,8 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                     idType fail_count;
                     idType *d_fail_count, *d_fail_perm;
                     fail_count = 0;
-                    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_fail_count, sizeof(idType)));
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_fail_count, sizeof(idType)));
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&d_fail_perm, sizeof(idType) * bin.bin_size[i]));
                     cudaMemcpy(d_fail_count, &fail_count, sizeof(idType), cudaMemcpyHostToDevice);
                     BS = 1024;
@@ -468,7 +468,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                         idType max_row_nz = bin.max_flop;
                         size_t table_size = (size_t)max_row_nz * fail_count;
                         idType* d_id_table;
-                        HGEMM_CHECK_CUDART_ERROR(
+                        CUDA_CHECK_CUDART_ERROR(
                             cudaMalloc((void**)&(d_id_table), sizeof(idType) * table_size));
                         BS = 1024;
                         GS = div_ceil(table_size, (size_t)BS);
@@ -490,7 +490,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                         table_size = max_row_nz * conc_row_num;
                     }
                     idType* d_id_table;
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&d_id_table, sizeof(idType) * table_size));
                     BS = 1024;
                     // GS = div_ceil(table_size, BS);
@@ -989,9 +989,9 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
 #endif
                     idType* d_id_table;
                     valType* d_value_table;
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&(d_id_table), sizeof(idType) * table_size));
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&(d_value_table), sizeof(valType) * table_size));
                     BS = 1024;
 #ifdef ORIGINAL_HASH

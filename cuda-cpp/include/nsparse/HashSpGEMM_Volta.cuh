@@ -1,8 +1,6 @@
 #ifndef NSPARSE_HASHSPGEMM_VOLTA_CUH
 #define NSPARSE_HASHSPGEMM_VOLTA_CUH
 
-#ifdef USE_CUDA
-
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
@@ -18,6 +16,7 @@
 
 namespace nsparse
 {
+
 constexpr int BIN_NUM = 7;
 constexpr int PWARP = 4;
 constexpr int TS_S_P = 32;   // Table Size for Symbolic in PWARP per row
@@ -453,8 +452,8 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                     idType fail_count;
                     idType *d_fail_count, *d_fail_perm;
                     fail_count = 0;
-                    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_fail_count, sizeof(idType)));
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_fail_count, sizeof(idType)));
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&d_fail_perm, sizeof(idType) * bin.bin_size[i]));
                     cudaMemcpy(d_fail_count, &fail_count, sizeof(idType), cudaMemcpyHostToDevice);
                     BS = 1024;
@@ -467,7 +466,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                         idType max_row_nz = bin.max_flop;
                         size_t table_size = (size_t)max_row_nz * fail_count;
                         idType* d_id_table;
-                        HGEMM_CHECK_CUDART_ERROR(
+                        CUDA_CHECK_CUDART_ERROR(
                             cudaMalloc((void**)&(d_id_table), sizeof(idType) * table_size));
                         BS = 1024;
                         GS = div_ceil(table_size, (size_t)BS);
@@ -489,7 +488,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                         table_size = max_row_nz * conc_row_num;
                     }
                     idType* d_id_table;
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&d_id_table, sizeof(idType) * table_size));
                     BS = 1024;
                     // GS = div_ceil(table_size, BS);
@@ -983,9 +982,9 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
 #endif
                     idType* d_id_table;
                     valType* d_value_table;
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&(d_id_table), sizeof(idType) * table_size));
-                    HGEMM_CHECK_CUDART_ERROR(
+                    CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&(d_value_table), sizeof(valType) * table_size));
                     BS = 1024;
 #ifdef NSPARSE_ORIGINAL_HASH
@@ -1015,7 +1014,7 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     cudaEvent_t event[2];
     float msec;
     for (int i = 0; i < 2; i++) {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventCreate(&(event[i])));
+        CUDA_CHECK_CUDART_ERROR(cudaEventCreate(&(event[i])));
     }
     // not a good idea since in consturctor, it will allocate cuda memory which
     // is slow.
@@ -1024,27 +1023,27 @@ void SpGEMM_Hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     c.nrow = a.nrow;
     c.ncolumn = b.ncolumn;
     c.devise_malloc = true;
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_rpt), sizeof(idType) * (c.nrow + 1)));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_rpt), sizeof(idType) * (c.nrow + 1)));
 
     bin.set_max_bin(a.d_rpt, a.d_colids, b.d_rpt, a.nrow, TS_S_P, TS_S_T);
 
-    HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
+    CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
     hash_symbolic(a, b, c, bin);
-    HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    HGEMM_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
+    CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
+    CUDA_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
+    CUDA_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
     //     cout << "HashSymbolic: " << msec << endl;
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_colids), sizeof(idType) * (c.nnz)));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_values), sizeof(valType) * (c.nnz)));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_colids), sizeof(idType) * (c.nnz)));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(c.d_values), sizeof(valType) * (c.nnz)));
 
     bin.set_min_bin(a.nrow, TS_N_P, TS_N_T);
 
-    HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
+    CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
     hash_numeric<idType, valType, sort>(a, b, c, bin);
-    HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    HGEMM_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
+    CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
+    CUDA_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
+    CUDA_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
     //     cout << "HashNumeric: " << msec << endl;
 }
 
@@ -1090,7 +1089,5 @@ void SpGEMM_Hash_Numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idT
 }
 
 }  // namespace nsparse
-
-#endif
 
 #endif

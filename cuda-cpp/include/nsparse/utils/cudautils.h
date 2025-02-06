@@ -34,13 +34,13 @@ inline long int get_tid()
     return tid;
 }
 
-#define HGEMM_LOG_TAG "HGEMM"
-#define HGEMM_LOG_FILE(x) (strrchr(x, '/') ? (strrchr(x, '/') + 1) : x)
-#define HLOG(format, ...)                                                                   \
-    do {                                                                                    \
-        fprintf(stderr, "[%s %s %d:%ld %s:%d %s] " format "\n", HGEMM_LOG_TAG, curr_time(), \
-                get_pid(), get_tid(), HGEMM_LOG_FILE(__FILE__), __LINE__, __FUNCTION__,     \
-                ##__VA_ARGS__);                                                             \
+#define CUDA_LOG_TAG "CUDA"
+#define CUDA_LOG_FILE(x) (strrchr(x, '/') ? (strrchr(x, '/') + 1) : x)
+#define HLOG(format, ...)                                                                  \
+    do {                                                                                   \
+        fprintf(stderr, "[%s %s %d:%ld %s:%d %s] " format "\n", CUDA_LOG_TAG, curr_time(), \
+                get_pid(), get_tid(), CUDA_LOG_FILE(__FILE__), __LINE__, __FUNCTION__,     \
+                ##__VA_ARGS__);                                                            \
     } while (0)
 
 // plain C++ version of get time
@@ -51,32 +51,32 @@ inline double get_time()
     return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
-#define HGEMM_LIKELY(x) __builtin_expect(!!(x), 1)
-#define HGEMM_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define CUDA_LIKELY(x) __builtin_expect(!!(x), 1)
+#define CUDA_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
-#define HGEMM_CHECK(x)                    \
+#define CUDA_CHECK(x)                     \
     do {                                  \
-        if (HGEMM_UNLIKELY(!(x))) {       \
+        if (CUDA_UNLIKELY(!(x))) {        \
             HLOG("Check failed: %s", #x); \
             exit(EXIT_FAILURE);           \
         }                                 \
     } while (0)
 
-#define HGEMM_CHECK_EQ(x, y) HGEMM_CHECK((x) == (y))
-#define HGEMM_CHECK_NE(x, y) HGEMM_CHECK((x) != (y))
-#define HGEMM_CHECK_LE(x, y) HGEMM_CHECK((x) <= (y))
-#define HGEMM_CHECK_LT(x, y) HGEMM_CHECK((x) < (y))
-#define HGEMM_CHECK_GE(x, y) HGEMM_CHECK((x) >= (y))
-#define HGEMM_CHECK_GT(x, y) HGEMM_CHECK((x) > (y))
+#define CUDA_CHECK_EQ(x, y) CUDA_CHECK((x) == (y))
+#define CUDA_CHECK_NE(x, y) CUDA_CHECK((x) != (y))
+#define CUDA_CHECK_LE(x, y) CUDA_CHECK((x) <= (y))
+#define CUDA_CHECK_LT(x, y) CUDA_CHECK((x) < (y))
+#define CUDA_CHECK_GE(x, y) CUDA_CHECK((x) >= (y))
+#define CUDA_CHECK_GT(x, y) CUDA_CHECK((x) > (y))
 
-#define HGEMM_DISALLOW_COPY_AND_ASSIGN(TypeName) \
-    TypeName(const TypeName&) = delete;          \
+#define CUDA_DISALLOW_COPY_AND_ASSIGN(TypeName) \
+    TypeName(const TypeName&) = delete;         \
     void operator=(const TypeName&) = delete
 
-#define HGEMM_CHECK_CUDART_ERROR(_expr_)                                             \
+#define CUDA_CHECK_CUDART_ERROR(_expr_)                                              \
     do {                                                                             \
         cudaError_t _ret_ = _expr_;                                                  \
-        if (HGEMM_UNLIKELY(_ret_ != cudaSuccess)) {                                  \
+        if (CUDA_UNLIKELY(_ret_ != cudaSuccess)) {                                   \
             const char* _err_str_ = cudaGetErrorName(_ret_);                         \
             int _rt_version_ = 0;                                                    \
             cudaRuntimeGetVersion(&_rt_version_);                                    \
@@ -90,10 +90,10 @@ inline double get_time()
         }                                                                            \
     } while (0)
 
-#define HGEMM_CHECK_CUBLAS_ERROR(_expr_)                                                   \
+#define CUDA_CHECK_CUBLAS_ERROR(_expr_)                                                    \
     do {                                                                                   \
         cublasStatus_t _ret_ = _expr_;                                                     \
-        if (HGEMM_UNLIKELY(_ret_ != CUBLAS_STATUS_SUCCESS)) {                              \
+        if (CUDA_UNLIKELY(_ret_ != CUBLAS_STATUS_SUCCESS)) {                               \
             size_t _rt_version_ = cublasGetCudartVersion();                                \
             HLOG("CUBLAS API error = %04d, runtime version: %zu", static_cast<int>(_ret_), \
                  _rt_version_);                                                            \
@@ -106,35 +106,35 @@ class CudaTimer
    public:
     CudaTimer()
     {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventCreate(&m_start));
-        HGEMM_CHECK(m_start);
-        HGEMM_CHECK_CUDART_ERROR(cudaEventCreate(&m_end));
-        HGEMM_CHECK(m_end);
+        CUDA_CHECK_CUDART_ERROR(cudaEventCreate(&m_start));
+        CUDA_CHECK(m_start);
+        CUDA_CHECK_CUDART_ERROR(cudaEventCreate(&m_end));
+        CUDA_CHECK(m_end);
     }
 
     ~CudaTimer()
     {
         if (m_start) {
-            HGEMM_CHECK_CUDART_ERROR(cudaEventDestroy(m_start));
+            CUDA_CHECK_CUDART_ERROR(cudaEventDestroy(m_start));
             m_start = nullptr;
         }
 
         if (m_end) {
-            HGEMM_CHECK_CUDART_ERROR(cudaEventDestroy(m_end));
+            CUDA_CHECK_CUDART_ERROR(cudaEventDestroy(m_end));
             m_end = nullptr;
         }
     }
 
     void start()
     {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(m_start));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(m_start));
     }
 
     float end()
     {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(m_end));
-        HGEMM_CHECK_CUDART_ERROR(cudaEventSynchronize(m_end));
-        HGEMM_CHECK_CUDART_ERROR(cudaEventElapsedTime(&m_elapsed_time, m_start, m_end));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(m_end));
+        CUDA_CHECK_CUDART_ERROR(cudaEventSynchronize(m_end));
+        CUDA_CHECK_CUDART_ERROR(cudaEventElapsedTime(&m_elapsed_time, m_start, m_end));
 
         return m_elapsed_time;
     }
@@ -144,7 +144,7 @@ class CudaTimer
     cudaEvent_t m_end = nullptr;
     float m_elapsed_time = 0.0;
 
-    HGEMM_DISALLOW_COPY_AND_ASSIGN(CudaTimer);
+    CUDA_DISALLOW_COPY_AND_ASSIGN(CudaTimer);
 };
 
 template <typename IT>

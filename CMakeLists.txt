@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.25) 
+cmake_minimum_required(VERSION 3.20) 
 project(nsparse LANGUAGES C CXX CUDA)
 
 #set c++ standard and find packages
 set(CMAKE_CXX_STANDARD 17) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 find_package(CUDAToolkit REQUIRED)
-set(CMAKE_CUDA_ARCHITECTURES 70 80 90)
+set(CMAKE_CUDA_ARCHITECTURES 80 90)
 #Define the header - only library target
 add_library(nsparse 
     cuda-cpp/src/BIN.cu 
@@ -29,20 +29,9 @@ target_compile_definitions(nsparse PUBLIC USE_CUDA)
 
 add_executable(spgemm-hash cuda-cpp/sample/spgemm/spgemm_hash.cu)
 target_link_libraries(spgemm-hash PUBLIC nsparse)
-find_package(spdlog REQUIRED)
+# find_package(spdlog REQUIRED)
 
 set(TARGETNAME spgemm-hash)
-# use pkg to get spdlog and gflags, then json.hpp, fast_matrix_market and eigen are included.
-
-# find_package(PkgConfig REQUIRED)
-# pkg_check_modules(spdlog REQUIRED spdlog)
-# pkg_check_modules(gflags REQUIRED gflags)
-# for cpp files
-# target_link_directories(${TARGETNAME} PUBLIC ${gflags_LIBRARY_DIRS})
-# target_include_directories(${TARGETNAME} PUBLIC ${gflags_INCLUDE_DIRS} ${CUDAToolkit_INCLUDE_DIRS} )
-# # for cuda file
-# target_link_libraries(${TARGETNAME} PUBLIC CUDA::cusparse CUDA::cudart ${gflags_LIBRARIES} ${spdlog_LIBRARIES})
-# set(CMAKE_CUDA_FLAGS " ${CMAKE_CUDA_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/include -I${gflags_INCLUDE_DIRS} -I${spdlog_INCLUDE_DIRS} -I${CUDAToolkit_INCLUDE_DIRS} ")
 
 # openmp
 find_package(OpenMP)

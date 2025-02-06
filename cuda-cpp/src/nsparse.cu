@@ -69,7 +69,7 @@ void get_spgemm_flop(CSR<idType, valType> a, CSR<idType, valType> b, long long i
     long long int* d_flop_per_row;
 
     BS = MAX_LOCAL_THREAD_NUM;
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&(d_flop_per_row), sizeof(long long int) * (1 + a.nrow)));
 
     GS = div_ceil((size_t)a.nrow, (size_t)BS);

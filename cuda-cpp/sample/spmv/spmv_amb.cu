@@ -39,9 +39,9 @@ void spmv(CSR<idType, valType>& mat, const valType* x, valType* y, Plan<idType>&
     /* Malloc and memcpy HtoD */
     mat.memcpyHtD();
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_x, sizeof(valType) * mat.ncolumn));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_y, sizeof(valType) * mat.nrow));
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_x, sizeof(valType) * mat.ncolumn));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_y, sizeof(valType) * mat.nrow));
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(d_x, x, sizeof(valType) * mat.ncolumn, cudaMemcpyHostToDevice));
 
     /* Converting format from CSR to AMB */
@@ -70,8 +70,7 @@ void spmv(CSR<idType, valType>& mat, const valType* x, valType* y, Plan<idType>&
         min_msec = ave_msec;
     }
 
-    HGEMM_CHECK_CUDART_ERROR(
-        cudaMemcpy(y, d_y, sizeof(valType) * mat.nrow, cudaMemcpyDeviceToHost));
+    CUDA_CHECK_CUDART_ERROR(cudaMemcpy(y, d_y, sizeof(valType) * mat.nrow, cudaMemcpyDeviceToHost));
 
     flops = (float)(mat.nnz) * 2 / 1000 / 1000 / min_msec;
     printf("SpMV using AMB format : %f[GFLOPS], %f[ms]\n", flops, ave_msec);

@@ -191,8 +191,8 @@ void convert_segmented_csr(CSR<idType, valType> csr_mat, idType* d_nnz_num, idTy
     nz = csr_mat.nnz;
     total_pad_row_num = pad_M * group_num_col;
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_group_seg, sizeof(idType) * nz));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_offset, sizeof(idType) * nz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_group_seg, sizeof(idType) * nz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_offset, sizeof(idType) * nz));
 
     BS = MAX_LOCAL_THREAD_NUM;
     GS = div_ceil(total_pad_row_num, BS);
@@ -216,8 +216,8 @@ void convert_segmented_csr(CSR<idType, valType> csr_mat, idType* d_nnz_num, idTy
 
     cudaDeviceSynchronize();
 
-    HGEMM_CHECK_CUDART_ERROR(cudaFree(d_offset));
-    HGEMM_CHECK_CUDART_ERROR(cudaFree(d_group_seg));
+    CUDA_CHECK_CUDART_ERROR(cudaFree(d_offset));
+    CUDA_CHECK_CUDART_ERROR(cudaFree(d_group_seg));
 }
 
 template <class idType>
@@ -302,9 +302,9 @@ void set_sellcs_chunk(idType* d_nnz_num, idType* d_cl, idType* d_cs, idType* ele
     thrust::inclusive_scan(thrust::device, d_cs, d_cs + c_size, d_cs);
 
     /*Get elements_num*/
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(elements_num, d_cs + (c_size - 1), sizeof(int), cudaMemcpyDeviceToHost));
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(&r_size, d_cl + (c_size - 1), sizeof(int), cudaMemcpyDeviceToHost));
 
     *elements_num += r_size * chunk;
@@ -564,10 +564,10 @@ void set_blocked_cl_cs(compIdType* d_blocked_cl, compIdType* d_blocked_coffset,
     thrust::inclusive_scan(thrust::device, d_blocked_cs, d_blocked_cs + c_size, d_blocked_cs);
 
     compIdType r_size;
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(c_nnz, d_blocked_cs + (c_size - 1), sizeof(idType), cudaMemcpyDeviceToHost));
-    HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(&r_size, d_blocked_cl + (c_size - 1), sizeof(compIdType),
-                                        cudaMemcpyDeviceToHost));
+    CUDA_CHECK_CUDART_ERROR(cudaMemcpy(&r_size, d_blocked_cl + (c_size - 1), sizeof(compIdType),
+                                       cudaMemcpyDeviceToHost));
 
     *c_nnz += (idType)(r_size + 1) * block_size * chunk;
 }
@@ -688,7 +688,7 @@ void AMB<idType, compIdType, valType>::evaluate_spmv(valType* d_x, valType* d_y,
             cudaEventRecord(event[1], 0);
             cudaDeviceSynchronize();
 
-            HGEMM_CHECK_CUDART_ERROR(
+            CUDA_CHECK_CUDART_ERROR(
                 cudaMemcpy(y, d_y, sizeof(valType) * M, cudaMemcpyDeviceToHost));
 
             cudaEventElapsedTime(&msec, event[0], event[1]);
@@ -754,18 +754,18 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
 
     /* Step 1 : Convert the matrix into Segmented Format */
     /* Convert format from CSR to Segmented CSR */
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_nnz_num, sizeof(idType) * total_pad_row_num));
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_nnz_num, sizeof(idType) * total_pad_row_num));
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&d_seg_rpt, sizeof(idType) * (total_pad_row_num + 1)));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_seg_col, sizeof(idType) * nz));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_seg_val, sizeof(valType) * nz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_seg_col, sizeof(idType) * nz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_seg_val, sizeof(valType) * nz));
 
     convert_segmented_csr(csr_mat, d_nnz_num, d_seg_rpt, d_seg_col, d_seg_val, seg_size, seg_num, M,
                           pad_M, group_num_col);
 
     /* Step 2 : Segmented CSR => Segmented SELL-C-sigma */
     /* Set permutation */
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&(d_full_write_permutation), sizeof(idType) * total_pad_row_num));
 
     GS = div_ceil(total_pad_row_num, BS);
@@ -773,9 +773,9 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
 
     sigma_block = div_ceil(pad_M, SIGMA) * group_num_col;
     check_nnz = (idType*)malloc(sizeof(idType) * sigma_block);
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_check_nnz), sizeof(idType) * sigma_block));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_check_nnz), sizeof(idType) * sigma_block));
     set_check_nnz(d_check_nnz, d_nnz_num, sigma_block, pad_M, SIGMA, group_num_col);
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(check_nnz, d_check_nnz, sizeof(idType) * sigma_block, cudaMemcpyDeviceToHost));
 
     /* Sorting each sigma rows */
@@ -801,13 +801,13 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
     }
 
     /* Set chunk size */
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_full_cl, sizeof(idType) * full_c_size));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_full_cs, sizeof(idType) * full_c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_full_cl, sizeof(idType) * full_c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_full_cs, sizeof(idType) * full_c_size));
     set_sellcs_chunk(d_nnz_num, d_full_cl, d_full_cs, &nnz, total_pad_row_num, chunk);
 
     /* Set sellcs_col and sellcs_val */
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nb_sellcs_col), sizeof(idType) * nnz));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nb_sellcs_val), sizeof(valType) * nnz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nb_sellcs_col), sizeof(idType) * nnz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nb_sellcs_val), sizeof(valType) * nnz));
 
     GS = div_ceil(total_pad_row_num, BS);
     set_segmented_sellcs_col_val<<<GS, BS>>>(
@@ -821,25 +821,25 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
     /* Step 3 : Compress column indices (eg. 32bit => 16bit)*/
     /* Compression */
     c_size = 0;
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_c_size, sizeof(idType)));
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_c_size, sizeof(idType)));
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(d_c_size, &(c_size), sizeof(idType), cudaMemcpyHostToDevice));
     get_c_size<<<div_ceil(full_c_size, BS), BS>>>(d_c_size, d_full_cl, full_c_size);
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMemcpy(&(c_size), d_c_size, sizeof(idType), cudaMemcpyDeviceToHost));
     cudaFree(d_c_size);
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nbs_sellcs_col), sizeof(compIdType) * nnz));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_is_empty), sizeof(bool) * full_c_size));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_gcs, sizeof(idType) * (full_c_size + 1)));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_nbs_sellcs_col), sizeof(compIdType) * nnz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_is_empty), sizeof(bool) * full_c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_gcs, sizeof(idType) * (full_c_size + 1)));
 
     set_ushort_col<<<div_ceil(total_pad_row_num, BS), BS>>>(d_nbs_sellcs_col, d_nb_sellcs_col,
                                                             d_full_cs, d_full_cl, d_is_empty,
                                                             group_num_col, pad_M, chunk, seg_size);
     set_gcs(d_gcs, d_is_empty, full_c_size);
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_packed_cl, sizeof(idType) * c_size));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_packed_cs, sizeof(idType) * c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_packed_cl, sizeof(idType) * c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_packed_cs, sizeof(idType) * c_size));
 
     set_packed_cl_cs<<<div_ceil(full_c_size, BS), BS>>>(d_packed_cl, d_packed_cs, d_full_cl,
                                                         d_full_cs, d_gcs, full_c_size);
@@ -851,14 +851,14 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
     /* Updating the write permutation */
     update_write_permutation<<<div_ceil(total_pad_row_num, BS), BS>>>(
         d_full_write_permutation, d_nnz_num, total_pad_row_num, pad_M, M);
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&d_write_permutation, sizeof(idType) * (c_size * chunk)));
     compress_write_permutation<<<div_ceil(total_pad_row_num, BS), BS>>>(
         d_write_permutation, d_full_write_permutation, d_gcs, total_pad_row_num, chunk);
 
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&(d_s_write_permutation), sizeof(compIdType) * (c_size * chunk)));
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&(d_s_write_permutation_offset), sizeof(compIdType) * c_size));
     compress_s_write_permutation<<<div_ceil((c_size * chunk), BS), BS>>>(
         d_s_write_permutation, d_s_write_permutation_offset, d_write_permutation, c_size, chunk);
@@ -875,24 +875,24 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
     if (plan.isPlan == false) {
         for (block_size = 1; block_size <= max_block; block_size++) {
             if (block_size > 1) {
-                HGEMM_CHECK_CUDART_ERROR(cudaFree(d_cl));
-                HGEMM_CHECK_CUDART_ERROR(cudaFree(d_coffset));
-                HGEMM_CHECK_CUDART_ERROR(cudaFree(d_cs));
-                HGEMM_CHECK_CUDART_ERROR(cudaFree(d_sellcs_col));
-                HGEMM_CHECK_CUDART_ERROR(cudaFree(d_sellcs_val));
+                CUDA_CHECK_CUDART_ERROR(cudaFree(d_cl));
+                CUDA_CHECK_CUDART_ERROR(cudaFree(d_coffset));
+                CUDA_CHECK_CUDART_ERROR(cudaFree(d_cs));
+                CUDA_CHECK_CUDART_ERROR(cudaFree(d_sellcs_col));
+                CUDA_CHECK_CUDART_ERROR(cudaFree(d_sellcs_val));
             }
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cl), sizeof(compIdType) * c_size));
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_coffset), sizeof(compIdType) * c_size));
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cs), sizeof(idType) * c_size));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cl), sizeof(compIdType) * c_size));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_coffset), sizeof(compIdType) * c_size));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cs), sizeof(idType) * c_size));
 
             c_nnz = 0;
             set_blocked_cl_cs(d_cl, d_coffset, d_cs, d_packed_cl, d_packed_cs, d_nbs_sellcs_col,
                               c_size, chunk, block_size, &c_nnz);
 
             nnz = c_nnz;
-            HGEMM_CHECK_CUDART_ERROR(
+            CUDA_CHECK_CUDART_ERROR(
                 cudaMalloc((void**)&(d_sellcs_col), sizeof(compIdType) * c_nnz / block_size));
-            HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_sellcs_val), sizeof(valType) * c_nnz));
+            CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_sellcs_val), sizeof(valType) * c_nnz));
             set_blocked_col_val<<<div_ceil((c_size * chunk), BS), BS>>>(
                 d_sellcs_col, d_sellcs_val, d_cl, d_cs, d_packed_cl, d_packed_cs, d_nbs_sellcs_col,
                 d_nb_sellcs_val, c_size, chunk, block_size);
@@ -923,25 +923,25 @@ void AMB<idType, compIdType, valType>::convert_amb_at(CSR<idType, valType> csr_m
 
         /* Set Best Block Size */
         block_size = plan.block_size;
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(d_cl));
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(d_coffset));
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(d_cs));
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(d_sellcs_col));
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(d_sellcs_val));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_cl));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_coffset));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_cs));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_sellcs_col));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_sellcs_val));
     }
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cl), sizeof(compIdType) * c_size));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_coffset), sizeof(compIdType) * c_size));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cs), sizeof(idType) * c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cl), sizeof(compIdType) * c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_coffset), sizeof(compIdType) * c_size));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_cs), sizeof(idType) * c_size));
 
     c_nnz = 0;
     set_blocked_cl_cs(d_cl, d_coffset, d_cs, d_packed_cl, d_packed_cs, d_nbs_sellcs_col, c_size,
                       chunk, block_size, &c_nnz);
 
     nnz = c_nnz;
-    HGEMM_CHECK_CUDART_ERROR(
+    CUDA_CHECK_CUDART_ERROR(
         cudaMalloc((void**)&(d_sellcs_col), sizeof(compIdType) * c_nnz / (block_size)));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_sellcs_val), sizeof(valType) * c_nnz));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_sellcs_val), sizeof(valType) * c_nnz));
 
     set_blocked_col_val<<<div_ceil((c_size * chunk), BS), BS>>>(
         d_sellcs_col, d_sellcs_val, d_cl, d_cs, d_packed_cl, d_packed_cs, d_nbs_sellcs_col,
@@ -976,7 +976,7 @@ void AMB<idType, compIdType, valType>::convert_from_csr(CSR<idType, valType> mat
     pad_M = chunk * div_ceil(mat.nrow, chunk);
     SIGMA = SHORT_MAX;
 
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_y, sizeof(valType) * (M + NSPARSE_WARP_SIZE)));
+    CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&d_y, sizeof(valType) * (M + NSPARSE_WARP_SIZE)));
 
     if (plan.isPlan == true) {
         seg_size = plan.seg_size;

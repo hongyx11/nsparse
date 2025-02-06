@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include <iostream>
+
 #include "nsparse/nsparse.h"
 #include "nsparse/utils/cudautils.h"
 
@@ -30,7 +32,7 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     float msec, ave_msec, flops;
 
     for (i = 0; i < 2; i++) {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventCreate(&(event[i])));
+        CUDA_CHECK_CUDART_ERROR(cudaEventCreate(&(event[i])));
     }
 
     /* Memcpy A and B from Host to Device */
@@ -39,18 +41,18 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
 
     /* Count flop of SpGEMM computation */
     get_spgemm_flop(a, b, flop_count);
-
+    std::cerr << "Flop count: " << flop_count << std::endl;
     /* Execution of SpGEMM on Device */
     ave_msec = 0;
     for (i = 0; i < SpGEMM_TRI_NUM; i++) {
         if (i > 0) {
             c.release_csr();
         }
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
         SpGEMM_Hash(a, b, c);
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
-        HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-        HGEMM_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
+        CUDA_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
+        CUDA_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
 
         if (i > 0) {
             ave_msec += msec;
@@ -64,11 +66,11 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     /* Numeric Only */
     ave_msec = 0;
     for (i = 0; i < SpGEMM_TRI_NUM; i++) {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[0], 0));
         SpGEMM_Hash_Numeric(a, b, c);
-        HGEMM_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
-        HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-        HGEMM_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
+        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(event[1], 0));
+        CUDA_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
+        CUDA_CHECK_CUDART_ERROR(cudaEventElapsedTime(&msec, event[0], event[1]));
 
         if (i > 0) {
             ave_msec += msec;
@@ -101,7 +103,7 @@ void spgemm_hash(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, val
     b.release_csr();
 
     for (i = 0; i < 2; i++) {
-        HGEMM_CHECK_CUDART_ERROR(cudaEventDestroy(event[i]));
+        CUDA_CHECK_CUDART_ERROR(cudaEventDestroy(event[i]));
     }
 }
 

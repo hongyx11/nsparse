@@ -26,7 +26,7 @@
 #define SHARED_N_P 2048  // Total table sizes required by one thread block in PWARP Numeric
 #define HASH_SCAL 107
 
-#define ORIGINAL_HASH
+#define NSPARSE_ORIGINAL_HASH
 
 namespace nsparse
 {
@@ -450,7 +450,7 @@ void hash_symbolic(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, v
                         bin.bin_offset[i], bin.bin_size[i]);
                     break;
                 case 6: {
-#ifdef ORIGINAL_HASH
+#ifdef NSPARSE_ORIGINAL_HASH
                     idType fail_count;
                     idType *d_fail_count, *d_fail_perm;
                     fail_count = 0;
@@ -713,7 +713,7 @@ __global__ void hash_numeric_tb(const idType* d_arpt, const idType* d_acolids,
     }
 }
 
-#ifdef ORIGINAL_HASH
+#ifdef NSPARSE_ORIGINAL_HASH
 template <class idType, class valType, bool sort>
 __global__ void hash_numeric_gl(const idType* d_arpt, const idType* d_acolids,
                                 const valType* d_avalues, const idType* __restrict__ d_brpt,
@@ -976,7 +976,7 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
                         bin.bin_size[i]);
                     break;
                 case 6: {
-#ifdef ORIGINAL_HASH
+#ifdef NSPARSE_ORIGINAL_HASH
                     idType max_row_nz = bin.max_nz * 2;
                     idType table_size = max_row_nz * bin.bin_size[i];
 #else
@@ -994,7 +994,7 @@ void hash_numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idType, va
                     CUDA_CHECK_CUDART_ERROR(
                         cudaMalloc((void**)&(d_value_table), sizeof(valType) * table_size));
                     BS = 1024;
-#ifdef ORIGINAL_HASH
+#ifdef NSPARSE_ORIGINAL_HASH
                     GS = div_ceil(table_size, BS);
                     init_id_table<<<GS, BS, 0, bin.stream[i]>>>(d_id_table, table_size);
                     init_value_table<<<GS, BS, 0, bin.stream[i]>>>(d_value_table, table_size);

@@ -23,30 +23,29 @@ class BIN
         }
         bin_size = (idType*)malloc(sizeof(idType) * BIN_NUM);
         bin_offset = (idType*)malloc(sizeof(idType) * BIN_NUM);
-        cudaMalloc((void**)&(d_permutation), sizeof(idType) * nrow);
-        cudaMalloc((void**)&(d_count), sizeof(idType) * (nrow + 1));
-        cudaMalloc((void**)&(d_max), sizeof(idType));
-        cudaMalloc((void**)&(d_bin_size), sizeof(idType) * BIN_NUM);
-        cudaMalloc((void**)&(d_bin_offset), sizeof(idType) * BIN_NUM);
+        CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_permutation), sizeof(idType) * nrow));
+        CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_count), sizeof(idType) * (nrow + 1)));
+        CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_max), sizeof(idType)));
+        CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_bin_size), sizeof(idType) * BIN_NUM));
+        CUDA_CHECK_CUDART_ERROR(cudaMalloc((void**)&(d_bin_offset), sizeof(idType) * BIN_NUM));
     }
 
     ~BIN()
     {
-        cudaFree(d_count);
-        cudaFree(d_permutation);
-        cudaFree(d_max);
-        cudaFree(d_bin_size);
-        cudaFree(d_bin_offset);
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_count));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_permutation));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_max));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_bin_size));
+        CUDA_CHECK_CUDART_ERROR(cudaFree(d_bin_offset));
         free(bin_size);
         free(bin_offset);
         for (int i = 0; i < BIN_NUM; i++) {
-            cudaStreamDestroy(stream[i]);
+            CUDA_CHECK_CUDART_ERROR(cudaStreamDestroy(stream[i]));
         }
         free(stream);
     }
 
-    void set_max_bin(idType* d_arpt, idType* d_acol, idType* d_brpt, idType M, int TS_S_P,
-                     int TS_S_T);
+    void set_max_bin(idType* d_arpt, idType* d_acol, idType* d_brpt, idType M, int TS_S_P, int TS_S_T);
     void set_min_bin(idType M, int TS_N_P, int TS_N_T);
     void set_min_bin(idType* d_rpt, idType M, int TS_N_P, int TS_N_T);
 
@@ -64,8 +63,8 @@ class BIN
 };
 
 template <class idType>
-__global__ void set_flop_per_row(idType* d_arpt, idType* d_acol, const idType* __restrict__ d_brpt,
-                                 idType* d_count, idType* d_max_flop, idType nrow)
+__global__ void set_flop_per_row(idType* d_arpt, idType* d_acol, const idType* __restrict__ d_brpt, idType* d_count,
+                                 idType* d_max_flop, idType nrow)
 {
     idType i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= nrow) {
@@ -81,8 +80,7 @@ __global__ void set_flop_per_row(idType* d_arpt, idType* d_acol, const idType* _
 }
 
 template <class idType, int BIN_NUM>
-__global__ void set_bin(idType* d_count, idType* d_bin_size, idType* d_max, idType nrow, idType min,
-                        idType mmin)
+__global__ void set_bin(idType* d_count, idType* d_bin_size, idType* d_max, idType nrow, idType min, idType mmin)
 {
     idType i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= nrow) {
@@ -118,8 +116,8 @@ __global__ void init_row_perm(idType* d_permutation, idType M)
 }
 
 template <class idType, int BIN_NUM>
-__global__ void set_row_perm(idType* d_bin_size, idType* d_bin_offset, idType* d_max_row_nz,
-                             idType* d_permutation, idType M, idType min, idType mmin)
+__global__ void set_row_perm(idType* d_bin_size, idType* d_bin_offset, idType* d_max_row_nz, idType* d_permutation,
+                             idType M, idType min, idType mmin)
 {
     idType i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i >= M) {
@@ -147,8 +145,7 @@ __global__ void set_row_perm(idType* d_bin_size, idType* d_bin_offset, idType* d
 }
 
 template <class idType, int BIN_NUM>
-void BIN<idType, BIN_NUM>::set_max_bin(idType* d_arpt, idType* d_acol, idType* d_brpt, idType M,
-                                       int TS_S_P, int TS_S_T)
+void BIN<idType, BIN_NUM>::set_max_bin(idType* d_arpt, idType* d_acol, idType* d_brpt, idType M, int TS_S_P, int TS_S_T)
 {
     idType i;
     idType GS, BS;
@@ -177,8 +174,7 @@ void BIN<idType, BIN_NUM>::set_max_bin(idType* d_arpt, idType* d_acol, idType* d
         }
         cudaMemcpy(d_bin_offset, bin_offset, sizeof(idType) * BIN_NUM, cudaMemcpyHostToDevice);
 
-        set_row_perm<idType, BIN_NUM>
-            <<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_S_T, TS_S_P);
+        set_row_perm<idType, BIN_NUM><<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_S_T, TS_S_P);
     } else {
         bin_size[0] = M;
         for (i = 1; i < BIN_NUM; i++) {
@@ -220,8 +216,7 @@ void BIN<idType, BIN_NUM>::set_min_bin(idType M, int TS_N_P, int TS_N_T)
         }
         cudaMemcpy(d_bin_offset, bin_offset, sizeof(idType) * BIN_NUM, cudaMemcpyHostToDevice);
 
-        set_row_perm<idType, BIN_NUM>
-            <<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_N_T, TS_N_P);
+        set_row_perm<idType, BIN_NUM><<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_N_T, TS_N_P);
     }
 
     else {
@@ -278,11 +273,8 @@ void BIN<idType, BIN_NUM>::set_min_bin(idType* d_rpt, idType M, int TS_N_P, int 
         }
         cudaMemcpy(d_bin_offset, bin_offset, sizeof(idType) * BIN_NUM, cudaMemcpyHostToDevice);
 
-        set_row_perm<idType, BIN_NUM>
-            <<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_N_T, TS_N_P);
-    }
-
-    else {
+        set_row_perm<idType, BIN_NUM><<<GS, BS>>>(d_bin_size, d_bin_offset, d_count, d_permutation, M, TS_N_T, TS_N_P);
+    } else {
         bin_size[0] = M;
         for (i = 1; i < BIN_NUM; i++) {
             bin_size[i] = 0;

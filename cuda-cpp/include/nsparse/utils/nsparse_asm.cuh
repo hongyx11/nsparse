@@ -56,20 +56,14 @@ template <class T>
 class Add
 {
    public:
-    __device__ __inline__ T operator()(T a, T b)
-    {
-        return a + b;
-    }
+    __device__ __inline__ T operator()(T a, T b) { return a + b; }
 };
 
 template <class T>
 class Multiply
 {
    public:
-    __device__ __inline__ T operator()(T a, T b)
-    {
-        return a * b;
-    }
+    __device__ __inline__ T operator()(T a, T b) { return a * b; }
 };
 
 template <class T>

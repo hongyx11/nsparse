@@ -31,9 +31,7 @@ class Plan
         }
     }
 
-    ~Plan()
-    {
-    }
+    ~Plan() {}
 
     void set_plan(idType s_size, idType b_size)
     {

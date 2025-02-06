@@ -125,10 +125,7 @@ class CudaTimer
         }
     }
 
-    void start()
-    {
-        CUDA_CHECK_CUDART_ERROR(cudaEventRecord(m_start));
-    }
+    void start() { CUDA_CHECK_CUDART_ERROR(cudaEventRecord(m_start)); }
 
     float end()
     {

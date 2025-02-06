@@ -13,8 +13,8 @@
 #include <iostream>
 #include <string>
 
-#include "common/common.h"
-#include "common/util.h"
+// #include "common/common.h"
+// #include "common/util.h"
 #include "utils/CSR.h"
 #include "utils/Plan.h"
 #include "utils/nsparse_asm.cuh"

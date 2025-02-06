@@ -8,7 +8,7 @@
 #include <iostream>
 #include <string>
 
-#include "nsparse/utils/cudautils.h"
+#include "utils/cudautils.h"
 
 namespace nsparse
 {
@@ -17,13 +17,9 @@ template <class idType, class valType>
 class CSR
 {
    public:
-    CSR() : nrow(0), ncolumn(0), nnz(0), devise_malloc(false)
-    {
-    }
+    CSR() : nrow(0), ncolumn(0), nnz(0), devise_malloc(false) {}
 
-    ~CSR()
-    {
-    }
+    ~CSR() {}
 
     void release_cpu_csr()
     {

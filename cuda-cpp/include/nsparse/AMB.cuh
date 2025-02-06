@@ -36,13 +36,9 @@ class AMB
         pad_M = chunk;
     }
 
-    ~AMB()
-    {
-    }
+    ~AMB() {}
 
-    void release_cpu_amb()
-    {
-    }
+    void release_cpu_amb() {}
 
     void release_amb()
     {
